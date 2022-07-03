@@ -1,7 +1,7 @@
 - 👋 Hi, I’m Ananya Kulshrestha computer science engineering student 
 - 👀 I’m interested in ... new technology,coding, new langauges
 - 🌱 I’m currently learning ...web development, python to sharp my skills and chinesse language
-- 💞️ I’m looking to do an internship or part time job to 
+- 💞️ I’m looking to do an internship or placement job to 
 - 📫 How to reach me ..email....ananyakulshrestha1234@gmail.com
 
 <!---
