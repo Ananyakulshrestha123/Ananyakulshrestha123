@@ -1,0 +1,322 @@
+Panel 1
+
+)ATTR
+@TYPE (TEXT) INTENS (HIGH) COLOR (RED)
+# TYPE (TEXT) INTENS (HIGH) COLOR (GREEN)
+$ TYPE (TEXT) INTENS (HIGH) COLOR (YELLOW)
+* TYPE (TEXT) INTENS (HIGH) COLOR (WHITE)
+CAPS (ON) JUST (LEFT)
+TYPE (INPUT) INTENS (LOW) COLOR (GREEN) PAD
+TYPE (OUTPUT) INTENS (HIGH) COLOR (BLUE)
+> BODY
+*--
+$
+TEST HARNESS TOOL
+@TIME: Tim
+$ TO AUTOMATE THE PROCESS TO TEST ONLINE CHANNELS
+@DATE: Dat
+@TESTING REGION (F11/F12/F13)
+@TESTING IMAGE (EC/MW)
+@TESTING MODE. (B-BULK/I-INDIVIDUAL)
+)INIT
+ZVARS
+= '(Region Image Mode)'
+> PROC
+&PFKey = .PFKEY
+)END
+
+*
+
+
+panel 4
+)ATTR
+@TYPE (TEXT) INTENS (HIGH) COLOR (RED)
+# TYPE (TEXT) INTENS (HIGH) COLOR (GREEN)
+$ TYPE (TEXT) INTENS (HIGH) COLOR (YELLOW)
+% TYPE (TEXT) INTENS (HIGH) COLOR (WHITE)
+( TYPE (INPUT) INTENS (LOW) COLOR (GREEN) PAD ( ) CAPS (ON) JUST (LEFT)
+) TYPE (OUTPUT) INTENS (HIGH) COLOR (BLUE)
+
+)BODY
+$
+TEST HARNESS TOOL
+@TIME: Tim
+$ TO AUTOMATE THE PROCESS TO TEST ONLINE CHANNELS
+@DATE: Dat
+
+$
+SINGLE MODE TESTING
+*
+@CURRENT RUN ID: )RunID
+
+DETAILS ADDED SUCCESSFULLY!
+$ FILL THE DETAILS AND PRESS THE ENTER KEY / PRESS ANY EF KEY TO EXTT
+
+)INIT
+.ZVARS = '(Continue RunID)' 
+
+)PROC
+&PFKey = .PFKEY
+
+)END
+
+
+rexx
+/* REXX HARNESS: FSTT.TEST.HARNESS.HARNESS */
+/************************************************************/
+/* Automated Mainframe Testing Harness                      */
+/* Features: ISPF Panels, JCL Submission, File Retention    */
+/************************************************************/
+ADDRESS TSO
+
+/* --- GLOBAL VARIABLES AND SETUP --- */
+JobPDSMember = 'FSTT.TEST.HARNESS.JCLLIB(FSTBOTHI)'
+InputPS_Static = 'FSTT.TEST.HARNESS.INPUT.PS' /* The overwritten static input file */
+HistoryFile = 'FSTT.TEST.HARNESS.HISTORY.LIST'
+RetentionLimit = 5 /* Placeholder: actual value comes from PANEL1 */
+
+/* Generate Unique Run IDs and DSNs for the Report */
+RunID = DATE('S') || TIME('M')
+ReportPS_Unique = 'FSTT.TEST.HARNESS.REPORT.'||RunID||'.PS'
+
+/* Check JCL Member Existence */
+IF SYSDSN("'"JobPDSMember"'") <> 'OK' THEN DO
+    SAY 'ERROR 00: CRITICAL ERROR. JOB MEMBER NOT FOUND: 'JobPDSMember
+    EXIT
+END
+ELSE DO
+    "ALLOCATE DD (JobDD) DATASET("JobPDSMember"') SHR"
+    "EXECIO * DISKR JobDD (STEM JobRec. FINIS"
+    "FREE DD (JobDD) "
+END
+
+/* Ensure Static Input PS exists or allocate it once */
+InputRC = LISTDSI ("'"InputPS_Static"'")
+IF SYSDSN("'"InputPS_Static"'") <> 'OK' THEN DO
+    "ALLOCATE DD (InputDD) DATASET("InputPS_Static"') NEW SPACE (10,10) TRACKS",
+    "RECFM(F,B) LRECL (80) BLKSIZE (800)"
+    "FREE DD (InputDD)"
+END
+ELSE IF SYSDSORG <> 'PS' THEN DO
+    SAY 'ERROR 00: CRITICAL ERROR. HARDCODED INPUT PS IS NOT A PS.'
+    EXIT
+END
+
+/* --- REXX MAIN FLOW --- */
+LABEL1:
+Tim = TIME()
+Dat = DATE()
+ADDRESS ISPEXEC
+"LIBDEF ISPPLIB DATASET ID ('FSTT.TEST.HARNESS.PARMLIB')"
+"DISPLAY PANEL (PANEL1)"
+
+IF PFKey <> '' THEN EXIT
+
+Region = STRIP(Region)
+Image = STRIP(Image)
+Mode = STRIP(Mode)
+RetentionLimit = STRIP(RetentionLimit)
+
+/* NEW: Validate RetentionLimit (must be a number 0-99 and cannot be blank) */
+IF DATATYPE(RetentionLimit, 'N') = 0 | (RetentionLimit < 0) | (RetentionLimit > 99) THEN DO
+    ZEDLMSG = 'ERROR 00: RETENTION LIMIT MUST BE NUMERIC BETWEEN 0 AND 99.'
+    "ISPEXEC SETMSG MSG(ISRZ001)"
+    SIGNAL LABEL1
+END
+
+/* Existing Validations (Region, Image, Mode) */
+IF Region <> 'F11' & Region <> 'F12' & Region <> 'F13' THEN DO
+    ZEDLMSG = 'ERROR 00: INVALID TESTING REGION ENTERED.'
+    "ISPEXEC SETMSG MSG(ISRZ001)"
+    SIGNAL LABEL1
+END
+IF Image <> 'EC' & Image <> 'MW' THEN DO
+    ZEDLMSG = 'ERROR 00: INVALID TESTING IMAGE ENTERED.'
+    "ISPEXEC SETMSG MSG(ISRZ001)"
+    SIGNAL LABEL1
+END
+
+/* Set Proc based on Image (Simplified) */
+Proc = 'DBIBPTS1' /* Default */
+IF Image = 'MW' THEN Proc = 'DBIBPTW2'
+
+/* Mode Handling */
+IF Mode = 'B' THEN DO
+    Loop = 'N'
+    SIGNAL LABEL2 /* Go to Bulk Mode Input */
+END
+ELSE IF Mode = 'I' THEN DO
+    Loop = 'Y'
+    I = 0
+    SIGNAL LABELLOOP /* Go to Individual Mode Input */
+END
+ELSE DO
+    ZEDLMSG = 'ERROR 00: INVALID TESTING MODE ENTERED.'
+    "ISPEXEC SETMSG MSG(ISRZ001)"
+    SIGNAL LABEL1
+END
+
+/* --- BULK MODE INPUT (LABEL2) --- */
+LABEL2:
+/* (Existing bulk mode logic here, omitted for brevity) */
+Tim = TIME()
+Dat = DATE()
+ADDRESS ISPEXEC
+"LIBDEF ISPPLIB DATASET ID ('FSTT.TEST.HARNESS.PARMLIB')"
+"DISPLAY PANEL (PANEL2)"
+IF PFKey <> '' THEN EXIT
+
+BulkFile = STRIP(BulkFile)
+IF (SYSDSN("'"BulkFile"'") <> 'OK') THEN DO
+    ZEDLMSG = 'ERROR 00: ENTERED TRANSACTIONS FILE DOES NOT EXIST'
+    "ISPEXEC SETMSG MSG(ISRZ001)"
+    SIGNAL LABEL2
+END
+/* ... (Other bulk file validation omitted for brevity) ... */
+
+ADDRESS TSO
+"ALLOC DD (BulkDD) DATASET('"BulkFile"') SHR"
+"EXECIO * DISKR BulkDD (STEM BulkRec. FINIS"
+"FREE DD (BulkDD)"
+
+IF BulkRec.0 = 0 THEN DO
+    ZEDLMSG = 'ERROR 00: ENTERED TRANSACTIONS FILE IS EMPTY.'
+    "ISPEXEC SETMSG MSG(ISRZ001)"
+    SIGNAL LABEL2
+END
+
+/* Copy bulk records to InputRec. */
+DO I = 1 TO BulkRec.0 BY 1
+    InputRec.I = BulkRec.I
+END
+SIGNAL LABELWRITE /* Go to JCL Submission */
+
+/* --- INDIVIDUAL MODE INPUT (LABELLOOP/LABEL3) --- */
+LABELLOOP:
+I = I + 1
+/* (Existing individual mode logic here, omitted for brevity) */
+SIGNAL LABELWRITE /* Go to JCL Submission */
+
+/* --- WRITE INPUT FILE AND SUBMIT JCL --- */
+LABELWRITE:
+ADDRESS TSO
+/* 1. Write the current run's transactions to the static input file */
+"ALLOCATE DD (InputDD) DATASET('"InputPS_Static"') OLD REUSE"
+"EXECIO "InputRec.0" DISKW InputDD (STEM InputRec. FINIS"
+"FREE DD (InputDD)"
+
+/* 2. Prepare and Submit JCL */
+TempPS = 'FSTT.TEST.HARNESS.TEMP.PS'
+"ALLOCATE DD (TempDD) DATASET('"TempPS"') OLD REUSE"
+
+DO J = 1 TO JobRec.0 BY 1
+    R=J
+    IntrdrRec.R = JobRec.J
+    
+    /* Existing Overlays: USER, Proc, Region */
+    IF J = 1 THEN DO
+        USER = USERID()
+        IntrdrRec.R = OVERLAY (USER, IntrdrRec.R, 3,7)
+    END
+    PosOfProc = POS('THPROC=', IntrdrRec.R)
+    IF PosOfProc > 0 THEN IntrdrRec.R = OVERLAY (Proc, IntrdrRec.R, PosOfProc + 8)
+    PosOfRegion = POS('THREGION=', IntrdrRec.R)
+    IF PosOfRegion > 0 THEN IntrdrRec.R = OVERLAY (Region, IntrdrRec.R, PosOfRegion + 10)
+
+    /* NEW: Overlay for Unique Report DSN (for STEP10) */
+    PosOfReport = POS('REPORTDSN=', IntrdrRec.R)
+    IF PosOfReport > 0 THEN DO
+        PosOfReport = PosOfReport + 10
+        IntrdrRec.R = OVERLAY (ReportPS_Unique, IntrdrRec.R, PosOfReport)
+    END
+    
+    /* NEW: Overlay for Static Input DSN (for all steps) */
+    PosOfInput = POS('INPUTDSN=', IntrdrRec.R)
+    IF PosOfInput > 0 THEN DO
+        PosOfInput = PosOfInput + 9
+        IntrdrRec.R = OVERLAY (InputPS_Static, IntrdrRec.R, PosOfInput)
+    END
+    
+END
+
+"EXECIO * DISKW TempDD (STEM IntrdrRec. FINIS"
+"FREE DD (TempDD) "
+
+"ALLOCATE DD(IntrdrDD) SYSOUT(A) WRITER (INTRDR) REUSE"
+"EXECIO * DISKW IntrdrDD (STEM IntrdrRec. FINIS"
+"FREE DD(IntrdrDD)"
+
+SAY 'MESSAGE 00: TEST HARNESS JOB HAS BEEN TRIGGERED. CHECK SPOOL.'
+
+/* 3. NEW: Record History and Call Cleanup */
+HistoryRecord = RunID||'|'||DATE()||'|'||TIME()||'|'||Region||'|'||Mode||'|'||ReportPS_Unique
+
+/* Write the new record to the history file (MOD/Append) */
+"ALLOCATE DD(HistDD) DATASET('"HistoryFile"') MOD REUSE"
+"EXECIO 1 DISKW HistDD (STEM HistoryRecord. 0)"
+"FREE DD(HistDD)"
+
+SIGNAL LABELCLEANUP /* Execute cleanup before viewing report */
+
+ADDRESS TSO
+SAY 'FILE IS GETTING OPENED, PLEASE WAIT FOR 2 SECS'
+SECS = 10
+START TIME('S')
+DO WHILE TIME('S') < START + SECS
+*
+DO NOTHING, JUST WAIT */
+
+/* View the unique report */
+ADDRESS ISPEXEC "VIEW DATASET('"ReportPS_Unique"')"
+
+EXIT
+
+/* --- NEW: AUTOMATED CLEANUP ROUTINE --- */
+LABELCLEANUP:
+/************************************************************/
+/* Automated History and File Retention Policy Enforcement  */
+/************************************************************/
+ADDRESS TSO
+CurrentLimit = RetentionLimit  /* Use the value read from PANEL1 */
+
+/* 1. Read the current history file */
+"ALLOCATE DD(HistDD) DATASET('"HistoryFile"') SHR"
+"EXECIO * DISKR HistDD (STEM HistoryRec. FINIS"
+"FREE DD(HistDD)"
+
+TotalRuns = HistoryRec.0
+
+IF TotalRuns > CurrentLimit THEN DO
+    RunsToDelete = TotalRuns - CurrentLimit
+    SAY 'INFO: Retention limit exceeded. Deleting oldest ' || RunsToDelete || ' reports.'
+    
+    NewHistoryRec. = ''
+    NewHistoryRec.0 = 0
+    
+    /* Loop through the oldest records to delete files */
+    DO I = 1 TO RunsToDelete
+        
+        OldRecord = STRIP(HistoryRec.I)
+        /* Parse to retrieve the DSN of the report to delete (it is the LAST field saved) */
+        PARSE VAR OldRecord . '|' . '|' . '|' . '|' . '|' ReportDSN
+        
+        /* Delete the unique archived report file */
+        "DELETE '"ReportDSN"' NORECALL"
+        SAY 'INFO: Deleted report file: ' || ReportDSN
+    END
+    
+    /* 2. Update the History File (Remove deleted records) */
+    /* Keep only the records that are within the limit (from RunsToDelete + 1 onwards) */
+    DO J = RunsToDelete + 1 TO TotalRuns
+        NewHistoryRec.0 = NewHistoryRec.0 + 1
+        NewHistoryRec.NewHistoryRec.0 = HistoryRec.J
+    END
+    
+    /* Overwrite the history file with only the retained records */
+    "ALLOCATE DD(HistDD) DATASET('"HistoryFile"') OLD REUSE"
+    "EXECIO * DISKW HistDD (STEM NewHistoryRec. FINIS"
+    "FREE DD(HistDD)"
+END
+
+RETURN /* Return to the main execution flow */
+
