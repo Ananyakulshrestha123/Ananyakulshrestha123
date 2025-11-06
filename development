@@ -320,3 +320,34 @@ END
 
 RETURN /* Return to the main execution flow */
 
+
+
+
+/* --- NEW: FINAL OUTPUT HANDLING (DUAL MODE) --- */
+IF IS_TSO_FOREGROUND() = 1 THEN DO
+    /* Online/Interactive Mode: Wait briefly, then display report */
+    ADDRESS TSO
+    SAY 'MESSAGE 00: Archiving complete. Opening archived report for viewing.'
+    SECS = 5 /* Reduced wait for better UX */
+    START TIME('S')
+    DO WHILE TIME('S') < START + SECS
+    /* DO NOTHING, JUST WAIT */
+    END
+    ADDRESS ISPEXEC "BROWSE DATASET('"ReportPS_Archive"')"
+END
+ELSE DO
+    /* Batch/Non-Interactive Mode: Log DSN and Exit */
+    SAY 'INFO: REXX completed in BATCH mode.'
+    SAY 'INFO: Final archived report DSN: 'ReportPS_Archive
+    EXIT 0 /* Signal successful completion to the JCL/Scheduler */
+END
+
+/* --- NEW: EXECUTION MODE CHECK FUNCTION (Add to the very end of your file) --- */
+IS_TSO_FOREGROUND:
+    /************************************************************/
+    /* Checks if REXX is running interactively under TSO/ISPF.  */
+    /************************************************************/
+    ADDRESS TSO
+    "ISPF"
+    IF RC = 0 THEN RETURN 1 /* ISPF command succeeds = Interactive */
+    RETURN 0
