@@ -117,3 +117,106 @@ JOB PROCEDURE
 
 * End the job
 STOP
+
+
+----------------------------------------------------
+------------------------------------------------------------------------------------------------------
+---------------------------------
+------------------------------------------------------------------
+----------------------
+------------
+--------
+---
+-
+
+--------------------
+
+
+
+************************************************************************
+* FILE DEFINITION SECTION
+************************************************************************
+FILE PS-IN                                          * Concatenated Input Files
+    PS-RECORD     1   100                           * General Record (max 100 bytes)
+    PS-ACCT       1    18 A                         * Account Field (18 characters)
+    PS-DATE      22     8 A                         * Date Placed
+    PS-TIME      31     5 A                         * Time Placed
+
+FILE PS-OUT RECORD VARYING 1 110                    * Output file with extra fields
+    PS-OUT-REC  1   110                             * 100 (Original) + 2 (Entity) + 8 (Type)
+
+************************************************************************
+* WORKING STORAGE SECTION
+************************************************************************
+WORKING-STORAGE SECTION.
+    WS-PREV-ACCT   1    18 A  VALUE ' '             * Holds previous Account number
+    WS-ENTITY      1     2 A  VALUE ' '             * New Entity Field (CT, FL, NC, GA)
+    WS-TYPE        1     8 A  VALUE 'PERSONAL'      * New Type Field, as requested
+
+************************************************************************
+* PROGRAM LOGIC SECTION
+************************************************************************
+JOB INPUT PS-IN
+    OPEN PS-OUT OUTPUT
+    PERFORM PROCESS-RECORDS
+    CLOSE PS-OUT
+    STOP
+
+*----------------------------------------------------------------------*
+* PROCEDURE TO PROCESS EACH INPUT RECORD
+*----------------------------------------------------------------------*
+PROCESS-RECORDS.
+    GET PS-IN
+    DO WHILE NOT PS-IN:EOF
+
+        * 1. HEADER CHECK & ENTITY ASSIGNMENT (REMOVE HEADER)
+        * Check for the "Work of Date:" line to identify the state/entity.
+        IF PS-RECORD (1:14) = 'Work of Date: '
+
+            * Check for state keyword starting around position 60
+            IF PS-RECORD (60:11) = 'Connecticut'
+                WS-ENTITY = 'CT'
+            ELSE IF PS-RECORD (60:14) = 'North Carolina'
+                WS-ENTITY = 'NC'
+            ELSE IF PS-RECORD (60:7) = 'Florida'
+                WS-ENTITY = 'FL'
+            * Note: Georgia appears in mixed case, checking for both is safer.
+            ELSE IF PS-RECORD (60:7) = 'georgia' OR PS-RECORD (60:7) = 'Georgia'
+                WS-ENTITY = 'GA'
+            END-IF
+
+            GO TO GET-NEXT-RECORD         * Skip this header record
+
+        * Skip other header/non-data lines
+        ELSE IF PS-RECORD (1:7) = 'Account' OR          * Column headers
+                PS-RECORD (1:4) = 'Run ' OR             * Run Date/Time
+                PS-RECORD (1:3) = '---' OR              * Separator line
+                PS-RECORD (1:3) = '***'                 * Top of Data line
+            GO TO GET-NEXT-RECORD         * Skip these records
+        END-IF
+
+        * Skip lines that are entirely blank (e.g., between pages)
+        IF PS-RECORD = ' '
+            GO TO GET-NEXT-RECORD
+        END-IF
+
+        * 2. ACCOUNT FIELD FILL-UP (Previous Row Logic)
+        * Check if the account field is blank (continuation record)
+        IF PS-ACCT = ' '
+            PS-ACCT = WS-PREV-ACCT        * Fill blank with previous account
+        ELSE
+            * If not blank, it's a new account, so save it for the next row
+            WS-PREV-ACCT = PS-ACCT
+        END-IF
+
+        * 3. WRITE THE OUTPUT RECORD
+        * Build the new output record structure: Original Data + New Fields
+        PS-OUT-REC (1:100) = PS-RECORD    * Copy original data
+        PS-OUT-REC (101:2) = WS-ENTITY    * Entity (CT, FL, NC, GA)
+        PS-OUT-REC (103:8) = WS-TYPE      * Type (PERSONAL)
+
+        WRITE PS-OUT FROM PS-OUT-REC
+
+GET-NEXT-RECORD.
+        GET PS-IN
+    END-DO
