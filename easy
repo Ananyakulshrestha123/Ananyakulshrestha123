@@ -220,3 +220,30 @@ PROCESS-RECORDS.
 GET-NEXT-RECORD.
         GET PS-IN
     END-DO
+JCL-------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+//YOURJOB JOB (accounting info), 'EASYTRIEVE', CLASS=A, MSGCLASS=X
+//******************************************************************
+//* STEP 1: EXECUTE EASYTRIEVE PROGRAM
+//******************************************************************
+//STEP01 EXEC PGM=EZTPA00,PARM='member-name'  * Or PGM=EASYTRIEVE
+//STEPLIB DD DSN=EASY.LOADLIB,DISP=SHR        * EasyTrieve Load Library
+//SYSOUT  DD SYSOUT=*
+//SYSIN   DD *
+(Paste the EasyTrieve Code above here)
+/*
+//******************************************************************
+//* INPUT FILE CONCATENATION
+//******************************************************************
+//PS-IN   DD DSN=Remarks_data.txt,DISP=SHR     * File 1 (Connecticut)
+//        DD DSN=Remarks_data_2.txt,DISP=SHR   * File 2 (North Carolina)
+//        DD DSN=Remarks_data_3.txt,DISP=SHR   * File 3 (Georgia)
+//        DD DSN=Remarks_data_4.txt,DISP=SHR   * File 4 (Florida)
+//******************************************************************
+//* OUTPUT FILE (The final concatenated file)
+//******************************************************************
+//PS-OUT  DD DSN=YOUR.FINAL.PS.FILE,
+//           DISP=(NEW,CATLG),
+//           UNIT=SYSDA,
+//           SPACE=(TRK,(1,1)),
+//           DCB=(RECFM=FB,LRECL=110,BLKSIZE=0)
