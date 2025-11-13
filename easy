@@ -1,0 +1,119 @@
+*---------------------------------------------------------------------
+* PROGRAM: CLAIM_PROCESS.EZP
+* AUTHOR: Gemini
+* PURPOSE: Reads a 200-byte input file, manipulates the data based
+* on the key (columns 1-8), reformats a date field (134-142),
+* and generates a report and an output file.
+*---------------------------------------------------------------------
+
+*---------------------------------------------------------------------
+* FILE DEFINITION SECTION
+* Define the Input File (200 characters)
+* Note: 'FILEIN' is the standard DD/FILE name usually associated
+* with the input JCL DD statement.
+*---------------------------------------------------------------------
+FILE FILEIN FB (200)
+
+* Define the Output Report (for printing)
+FILE PRINTER PRINTER
+
+* Define the Output File (to store the processed data)
+* We will make the output record 30 bytes long:
+* Key (8) + Type (9) + Formatted Date (8) + Separator (5) = 30
+FILE FILEOUT FB (30)
+
+*---------------------------------------------------------------------
+* RECORD LAYOUTS
+*---------------------------------------------------------------------
+* 1. Input File Layout
+FILEIN 01 RECORD-KEY         1  8 A   * Columns 1-8
+       01 FILLER             9 125 A   * Columns 9-133
+       01 CLAIM-DATE-RAW   134  9 A   * Columns 134-142 (assuming YYYYMMDDX format)
+       01 FILLER           143  58 A  * Columns 143-200
+
+* 2. Output File Layout
+FILEOUT 01 OUT-RECORD
+        05 OUT-KEY          1  8 A
+        05 OUT-TYPE         9  9 A
+        05 OUT-DATE        18  8 A
+        05 OUT-FILLER      26  5 A VALUE '-----'
+
+*---------------------------------------------------------------------
+* WORKING STORAGE SECTION
+* Define variables to hold calculated data
+*---------------------------------------------------------------------
+WORKING-STORAGE SECTION
+
+* Variable for the new calculated type ('PPV' or 'Permanent')
+01 CLAIM-TYPE          9 A
+
+* Variable for the formatted date (YYYYMMDD)
+01 FMT-DATE            8 A
+
+*---------------------------------------------------------------------
+* REPORT DEFINITION SECTION
+* Define a simple report layout
+*---------------------------------------------------------------------
+DEFINE REPORT CLAIM-REPORT
+
+TITLE 01
+  LINE 1 'CLAIM PROCESSING REPORT - MANIPULATED DATA'
+  SKIP 1
+
+COLUMN 01
+  LINE 2 'RECORD KEY'
+  LINE 3 '=========='
+COLUMN 15
+  LINE 2 'CLAIM TYPE'
+  LINE 3 '=========='
+COLUMN 30
+  LINE 2 'CLAIM DATE (YYYYMMDD)'
+  LINE 3 '====================='
+SKIP 1
+
+DETAIL 01
+  LINE 1 RECORD-KEY 01 A
+  LINE 1 CLAIM-TYPE 15 A
+  LINE 1 FMT-DATE   30 A
+SKIP 1
+
+*---------------------------------------------------------------------
+* PROCEDURE SECTION (The main program logic)
+*---------------------------------------------------------------------
+JOB PROCEDURE
+
+  * Read all records from the input file
+  GET FILEIN
+
+  *---------------------------------------------------------
+  * 1. DATE MANIPULATION: Extract the YYYYMMDD part of the date
+  * Assuming CLAIM-DATE-RAW is 9 characters (e.g., YYYYMMDDX format)
+  *---------------------------------------------------------
+  MOVE CLAIM-DATE-RAW(1:8) TO FMT-DATE
+
+  *---------------------------------------------------------
+  * 2. KEY MANIPULATION: Determine the CLAIM-TYPE
+  * Based on user logic: FSTFRAUD or FSTERROR = PPV, else Permanent
+  *---------------------------------------------------------
+  IF RECORD-KEY = 'FSTFRAUD' OR
+     RECORD-KEY = 'FSTERROR'
+    MOVE 'PPV' TO CLAIM-TYPE
+  ELSE
+    MOVE 'Permanent' TO CLAIM-TYPE
+  END-IF
+
+  *---------------------------------------------------------
+  * 3. OUTPUT GENERATION
+  * a) Write to the Report (PRINTER)
+  *---------------------------------------------------------
+  REPORT CLAIM-REPORT
+
+  * b) Write to the Output File (FILEOUT)
+  MOVE RECORD-KEY TO OUT-KEY
+  MOVE CLAIM-TYPE TO OUT-TYPE
+  MOVE FMT-DATE   TO OUT-DATE
+
+  WRITE FILEOUT FROM OUT-RECORD
+
+* End the job
+STOP
