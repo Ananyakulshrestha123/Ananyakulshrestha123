@@ -1,0 +1,28 @@
+//STEP1   EXEC PGM=SORT
+//SYSOUT  DD SYSOUT=*
+//SORTIN  DD DSN=INPUT.LOG.FILE,DISP=SHR
+//SORTOUT DD DSN=OUTPUT.DATE.EVENT.CNT,
+//         DISP=(NEW,CATLG,DELETE),
+//         SPACE=(CYL,(5,5)),
+//         DCB=(RECFM=FB,LRECL=40)
+//SYSIN   DD *
+  * Extract DATE (YYYY-MM-DD) and EVENTSOURCE
+  INREC FINDREP=(IN=C'eventsource ',OUT=C'eventsource '),
+        FINDREP=(IN=C'dateTime ',OUT=C'dateTime '),
+        OVERLAY=(1:POSITION,10,
+                 12:POSITION+11,4)
+
+  * Filter only valid dates
+  INCLUDE COND=(1,10,CH,GE,C'2025-12-01',
+                AND,
+                1,10,CH,LE,C'2025-12-31')
+
+  SORT FIELDS=(1,10,CH,A,12,4,CH,A)
+  SUM FIELDS=NONE
+
+  OUTFIL REMOVECC,
+         SECTIONS=(1,14),
+         TRAILER3=(1,10,C' ',12,4,
+                   C' ',
+                   COUNT=(M11,LENGTH=8))
+/*
